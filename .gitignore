@@ -36,3 +36,7 @@ Thumbs.db
 !out/**/*.v
 !out/**/*.png
 !out/**/*.npy
+!out/**/*.json
+!out/**/*.csv
+!out/**/*.tex
+!out/**/Makefile

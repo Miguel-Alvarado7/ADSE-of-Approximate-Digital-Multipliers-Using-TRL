@@ -1,0 +1,97 @@
+% ---------------------------------------------------------------------------
+% ANALISIS DE TIEMPO EN UN BLOQUE PURAMENTE COMBINACIONAL
+% ---------------------------------------------------------------------------
+% Los multiplicadores no tienen reloj ni registros. LibreLane (CLOCK_PORT=null)
+% genera un RELOJ VIRTUAL en el SDC que no controla ningun biestable y solo
+% sirve de referencia temporal, y restringe el bloque como camino puerto-a-puerto:
+%
+%   create_clock -name __VIRTUAL_CLK__ -period T
+%   set_clock_uncertainty 0.25
+%   set_input_delay  0.2*T  (todos los puertos A, B)
+%   set_output_delay 0.2*T  (todos los puertos P)
+%
+%   data required time = T - 0.25 - 0.2*T
+%   data arrival  time = 0.2*T + t_comb
+%   slack (WNS)        = 0.6*T - 0.25 - t_comb
+%   =>  t_comb = 0.6*T - 0.25 - WNS      <-- columna Critical Path
+%
+% Verificado contra los 93 reportes max.rpt post-PnR: t_comb coincide con
+% (data arrival time - input external delay) en los 93, sin discrepancias.
+%
+% CORNER: timing__setup__ws es el peor de las 9 esquinas PVT, que siempre
+% resulta ser max_ss_100C_1v60. La columna Critical Path es por tanto el
+% retardo combinacional en el corner LENTO (conservador). El corner tipico
+% (nom_tt_025C_1v80) da aproximadamente la mitad; ver columna comentada cp_tt
+% en error_metrics_full.csv si se prefiere reportar el caso tipico.
+%
+% Error (%) = MRED = mean(|P - A*B| / (A*B)) sobre los pares con A*B != 0,
+%   por simulacion exhaustiva 2^N x 2^N.
+% Area  = design__instance__area        Power = power__total x 1e6
+% Cells = design__instance__count__stdcell - ...__class:tap_cell
+% ---------------------------------------------------------------------------
+
+\begin{table*}[htbp]
+\centering
+\caption{RL-generated multipliers versus state-of-the-art approximate designs}
+\label{tab:metrics}
+
+\begin{tabular}{@{}c l c c c c c c@{}}
+\toprule
+\textbf{N} & \textbf{Design} & \textbf{Error} & \textbf{Area} &
+\textbf{Power} & \textbf{Delay} & \textbf{Cells} & \textbf{Pareto} \\
+& & (\%) & ($\mu$m$^2$) & ($\mu$W) & (ns) & & \\
+\midrule
+\multirow{7}{*}{2}
+& Monte Carlo & 0.00 & 490.47 & 15.28 & 2.09 & 15 & $\bullet$ \\
+& Q-learning & 0.00 & 490.47 & 15.28 & 2.09 & 15 & $\bullet$ \\
+& SARSA & 0.00 & 490.47 & 15.28 & 2.09 & 15 & $\bullet$ \\
+\cmidrule(l){2-8}
+& Exact array & 0.00 & 490.47 & 15.29 & 2.09 & 15 & $\bullet$ \\
+& UDM~\cite{kulkarni2011} & 2.47 & 270.26 & 11.72 & 1.72 & 11 & $\bullet$ \\
+& BAM $(0,1)$~\cite{mahdiani2010} & 19.75 & 402.89 & 12.47 & 2.17 & 13 &  \\
+& BAM $(1,0)$~\cite{mahdiani2010} & 44.44 & 292.78 & 7.62 & 1.80 & 11 &  \\
+\midrule
+\multirow{13}{*}{4}
+& SARSA & 4.29 & 5815.58 & 67.15 & 5.87 & 76 &  \\
+& Monte Carlo & 26.55 & 7727.41 & 104.42 & 5.81 & 102 &  \\
+& Q-learning & 45.22 & 1301.25 & 16.91 & 3.03 & 31 & $\bullet$ \\
+\cmidrule(l){2-8}
+& Exact array & 0.00 & 5540.31 & 64.50 & 5.78 & 76 & $\bullet$ \\
+& BAM $(0,1)$~\cite{mahdiani2010} & 1.82 & 5780.54 & 62.32 & 5.68 & 74 &  \\
+& UDM~\cite{kulkarni2011} & 2.97 & 3942.53 & 50.38 & 5.36 & 58 & $\bullet$ \\
+& BAM $(0,2)$~\cite{mahdiani2010} & 7.11 & 4264.09 & 49.08 & 5.81 & 61 &  \\
+& DRUM $k{=}3$~\cite{hashemi2015} & 9.15 & 4264.09 & 65.25 & 5.63 & 63 &  \\
+& BAM $(1,1)$~\cite{mahdiani2010} & 13.48 & 3284.40 & 35.36 & 5.81 & 53 & $\bullet$ \\
+& BAM $(1,2)$~\cite{mahdiani2010} & 16.12 & 3389.50 & 35.07 & 5.13 & 51 &  \\
+& DRUM $k{=}2$~\cite{hashemi2015} & 26.85 & 2757.64 & 38.87 & 4.24 & 47 & $\bullet$ \\
+& BAM $(2,2)$~\cite{mahdiani2010} & 33.10 & 1941.86 & 21.54 & 3.32 & 34 & $\bullet$ \\
+& BAM $(2,3)$~\cite{mahdiani2010} & 36.91 & 1921.84 & 17.43 & 3.65 & 33 & $\bullet$ \\
+\midrule
+\multirow{15}{*}{6}
+& Q-learning & 54.58 & 7567.26 & 41.38 & 6.27 & 107 &  \\
+& SARSA & 60.02 & 8092.76 & 56.98 & 7.03 & 109 &  \\
+& Monte Carlo & 269.28 & 29401.90 & 377.85 & 12.10 & 332 &  \\
+\cmidrule(l){2-8}
+& Exact array & 0.00 & 17236.50 & 161.67 & 10.38 & 218 & $\bullet$ \\
+& BAM $(0,2)$~\cite{mahdiani2010} & 0.77 & 15089.50 & 135.09 & 9.15 & 189 & $\bullet$ \\
+& DRUM $k{=}5$~\cite{hashemi2015} & 1.99 & 13295.30 & 152.09 & 10.74 & 175 & $\bullet$ \\
+& BAM $(1,2)$~\cite{mahdiani2010} & 4.60 & 13773.20 & 111.36 & 9.32 & 171 &  \\
+& DRUM $k{=}4$~\cite{hashemi2015} & 5.45 & 10277.40 & 114.39 & 8.53 & 135 & $\bullet$ \\
+& BAM $(1,3)$~\cite{mahdiani2010} & 5.54 & 12465.70 & 94.42 & 10.32 & 154 &  \\
+& BAM $(2,3)$~\cite{mahdiani2010} & 11.61 & 10184.80 & 65.05 & 8.86 & 134 & $\bullet$ \\
+& DRUM $k{=}3$~\cite{hashemi2015} & 12.14 & 7291.99 & 62.81 & 8.14 & 112 & $\bullet$ \\
+& BAM $(2,4)$~\cite{mahdiani2010} & 13.09 & 9064.94 & 54.13 & 8.58 & 119 &  \\
+& BAM $(3,4)$~\cite{mahdiani2010} & 22.76 & 5780.54 & 32.33 & 5.86 & 81 & $\bullet$ \\
+& BAM $(3,5)$~\cite{mahdiani2010} & 25.02 & 5074.87 & 28.25 & 5.87 & 74 & $\bullet$ \\
+& DRUM $k{=}2$~\cite{hashemi2015} & 26.41 & 5042.34 & 42.04 & 6.29 & 79 & $\bullet$ \\
+\bottomrule
+\multicolumn{8}{@{}p{0.95\linewidth}@{}}{\footnotesize
+Delay is the combinational propagation delay of the block, extracted from a
+virtual-clock port-to-port static timing analysis at the slow corner
+(\texttt{ss}, 100\,\textup{\textdegree}C, 1.60\,V); the designs are purely
+combinational and contain no registers. $\bullet$ marks designs on the
+error--area Pareto frontier. At $N=2$ all three agents reach the exact array
+multiplier; at $N=4$ only Q-learning remains on the frontier, as the smallest
+design overall; at $N=6$ no RL-generated circuit is Pareto-optimal.}
+\end{tabular}
+\end{table*}
