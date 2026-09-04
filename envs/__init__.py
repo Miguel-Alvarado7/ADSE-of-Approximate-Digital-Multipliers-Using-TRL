@@ -11,18 +11,15 @@ from .base import BinaryMathEnv
 
 __all__ = [
     'BinaryMathEnv',
-    'BinaryMathEnvSecuencial',
     'BinaryMathEnvCUDA',
     'BinaryMathEnvCUDAOptimized',
 ]
 
 # Lazy imports: BinaryMathEnv solo necesita numpy+gymnasium. Las clases con
-# dependencias pesadas (pygame, torch) se cargan bajo demanda, evitando
-# instalarlas para experimentos en CPU. Se usa __getattr__ a nivel de clase de
-# módulo (compatible con Python 3.6, donde el __getattr__ de módulo de PEP 562
-# aún no existe).
+# dependencias pesadas (torch) se cargan bajo demanda. Se usa __getattr__ a
+# nivel de clase de módulo (compatible con Python 3.6, donde el __getattr__ de
+# módulo de PEP 562 aún no existe).
 _LAZY_MODULES = {
-    'BinaryMathEnvSecuencial': '.pygame_env',
     'BinaryMathEnvCUDA': '.cuda',
     'BinaryMathEnvCUDAOptimized': '.cuda_optimized',
 }

@@ -1,8 +1,7 @@
 """Entrenamiento de Monte Carlo on-policy batched sobre BinaryMathEnvCUDAOptimized.
 
-A diferencia de train_mc.py (CPU, un entorno secuencial evaluado con
-iverilog/vvp por episodio), este script ejecuta `n_envs` episodios en
-paralelo con operaciones vectorizadas de torch:
+Este script ejecuta `n_envs` episodios en paralelo con operaciones
+vectorizadas de torch:
 
     python train_mc_cuda.py [--bits 2] [--height 2] [--n-envs 512]
                             [--episodes 100000] [--alpha 0.1] [--seed 42]
@@ -32,7 +31,6 @@ import os
 import numpy as np
 import torch
 
-from envs import BinaryMathEnv
 from envs import BinaryMathEnvCUDAOptimized
 from agents.cuda.montecarlo import MonteCarloAgentCUDA
 from training.artifacts import (TopK, clear_checkpoints, save_q, save_returns,

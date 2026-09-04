@@ -1,7 +1,6 @@
-"""Agentes tabulares para BinaryMathEnv (CPU) y variantes CUDA.
+"""Agentes tabulares VECTORIZADOS para entornos CUDA (BinaryMathEnvCUDAOptimized).
 
-Los agentes CPU solo dependen de numpy; los CUDA arrastran torch y se cargan
-bajo demanda para no exigir PyTorch en experimentos de CPU. Se usa __getattr__
+Los agentes arrastran torch y se cargan bajo demanda. Se usa __getattr__
 a nivel de clase de módulo (compatible con Python 3.6, donde el __getattr__ de
 módulo de PEP 562 aún no existe).
 """
@@ -10,14 +9,7 @@ import importlib
 import sys
 from types import ModuleType
 
-from .cpu import MonteCarloAgent
-from .cpu import QLearningAgentCPU
-from .cpu import SarsaAgentCPU
-
 __all__ = [
-    "MonteCarloAgent",
-    "QLearningAgentCPU",
-    "SarsaAgentCPU",
     "MonteCarloAgentCUDA",
     "QLearningAgentCUDA",
     "SarsaAgentCUDA",
