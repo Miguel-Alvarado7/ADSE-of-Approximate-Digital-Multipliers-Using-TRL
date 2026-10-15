@@ -1,60 +1,60 @@
-# Baselines del estado del arte para el flujo LibreLane
+# State-of-the-art baselines for the LibreLane flow
 
-26 multiplicadores de referencia a 2, 4 y 6 bits, listos para `make run`
-desde `/home/gmunserver/out`. Todos exponen el mismo top que los circuitos
-generados por los agentes:
+26 reference multipliers at 2, 4 and 6 bits, ready for `make run`
+from `/home/gmunserver/out`. All expose the same top as the
+agent-generated circuits:
 
     module multiplier (input [B-1:0] A, input [B-1:0] B, output [2B-1:0] P);
 
-Cada `.v` es autocontenido (un solo fichero, sin `include`), que es lo que
-exige el `Makefile` al copiar el RTL a `src/`.
+Each `.v` is self-contained (single file, no `include`), which is what
+the `Makefile` requires when copying the RTL to `src/`.
 
-## Uso
+## Usage
 
     cd /home/gmunserver/out
-    make list          # ahora lista 101 diseños (75 RL + 26 baselines)
-    make run           # dentro del nix-shell de LibreLane
+    make list          # now lists 101 designs (75 RL + 26 baselines)
+    make run           # inside the LibreLane nix-shell
     make csv-final
 
-`amlib` ya está en `ALGORITHMS`. Las carpetas se llaman `bits2/`, `bits4/`
-y `bits6/` para que el Makefile deduzca el período de reloj (5 / 10 / 20 ns)
-igual que con los circuitos del agente.
+`amlib` is already in `ALGORITHMS`. Folders are named `bits2/`, `bits4/`
+and `bits6/` so the Makefile derives the clock period (5 / 10 / 20 ns)
+the same way as for the agent circuits.
 
-## Qué hay y de dónde viene
+## What is here and where it comes from
 
-| Fichero | Origen del RTL | Referencia |
+| File | RTL origin | Reference |
 |---|---|---|
-| `exact_array.v` | Generado | Multiplicador array exacto. Normaliza área y potencia. |
-| `bam_h*_v*.v` | Reimplementado | Mahdiani, Ahmadi, Fakhraie & Lucas, *Bio-inspired imprecise computational blocks*, IEEE TCAS-I 57(4), 2010. |
-| `udm_kulkarni.v` | **Verbatim de AM-Lib** | Kulkarni, Gupta & Ercegovac, *Trading accuracy for power with an underdesigned multiplier architecture*, VLSI Design 2011. |
-| `drum_k*.v` | **Verbatim de AM-Lib** | Hashemi, Bahar & Reda, *DRUM: A Dynamic Range Unbiased Multiplier*, ICCAD 2015. |
+| `exact_array.v` | Generated | Exact array multiplier. Normalizes area and power. |
+| `bam_h*_v*.v` | Reimplemented | Mahdiani, Ahmadi, Fakhraie & Lucas, *Bio-inspired imprecise computational blocks*, IEEE TCAS-I 57(4), 2010. |
+| `udm_kulkarni.v` | **Verbatim from AM-Lib** | Kulkarni, Gupta & Ercegovac, *Trading accuracy for power with an underdesigned multiplier architecture*, VLSI Design 2011. |
+| `drum_k*.v` | **Verbatim from AM-Lib** | Hashemi, Bahar & Reda, *DRUM: A Dynamic Range Unbiased Multiplier*, ICCAD 2015. |
 
-Librería de origen: <https://github.com/skycrapers/AM-Lib>. Citar además la
+Source library: <https://github.com/skycrapers/AM-Lib>. Also cite the
 survey: Wu, Chen, Xiao, Wang, Wen, Han, Yin, Qian & Zhuo, *A Survey on
 Approximate Multiplier Designs for Energy Efficiency*, ACM TODAES, 2023,
 doi:10.1145/3610291.
 
-## Tres advertencias que afectan a cómo se reportan los resultados
+## Three caveats that affect how results are reported
 
-**1. BAM está reimplementado, no copiado.** El `top.v` de BAM en AM-Lib está
-desenrollado a mano para 16 bits y no admite otro ancho. La regla de poda es
-idéntica a la suya (se conserva `pp(i,j)` si `j >= HOR` y `(i+j) >= VER`),
-pero el RTL es nuestro. Debe decirse así en cualquier publicación.
+**1. BAM is reimplemented, not copied.** The BAM `top.v` in AM-Lib is
+hand-unrolled for 16 bits and does not support any other width. The pruning
+rule is identical to theirs (`pp(i,j)` is kept if `j >= HOR` and `(i+j) >= VER`),
+but the RTL is ours. State it that way in any publication.
 
-**2. Dos estilos de RTL conviven aquí.** `exact_array` y `bam_*` están
-escritos en el mismo estilo por columnas que los circuitos del agente, así
-que su área es comparable directamente. `udm_kulkarni` y `drum_*` son el RTL
-estructural original de AM-Lib: su área incluye el estilo de codificación,
-no sólo el algoritmo. No mezclar ambos grupos en una misma curva sin decirlo.
+**2. Two RTL styles coexist here.** `exact_array` and `bam_*` are written
+in the same column style as the agent circuits, so their area is directly
+comparable. `udm_kulkarni` and `drum_*` are the original structural RTL
+from AM-Lib: their area includes the coding style, not just the algorithm.
+Do not mix both groups in a single curve without saying so.
 
-**3. Coberturas de ancho.** UDM sólo existe en 2 y 4 bits: su `ApproxMult` es
-recursivo por mitades y a 6 bits la recursión no termina. DRUM sólo en 4 y 6
-bits: a 2 bits no queda margen para el parámetro `k`.
+**3. Width coverage.** UDM exists only at 2 and 4 bits: its `ApproxMult` is
+recursive over halves and at 6 bits the recursion does not terminate. DRUM
+only at 4 and 6 bits: at 2 bits there is no room left for the `k` parameter.
 
-## Precisión ya medida
+## Accuracy already measured
 
-`accuracy_metrics.csv` trae MED, NMED, peak error y ER de los 26, medidos con
-barrido exhaustivo usando `verification/tb_multiplier_universal.v` del repo
-del proyecto. Se cruza con la salida de `make csv-final` por
-`(algorithm, configuration, topology)` para obtener la frontera
-precisión/área sin volver a simular.
+`accuracy_metrics.csv` carries MED, NMED, peak error and ER for all 26,
+measured with an exhaustive sweep using the project's
+`verification/tb_multiplier_universal.v`. It joins with the `make csv-final`
+output on `(algorithm, configuration, topology)` to get the
+accuracy/area frontier without re-simulating.
