@@ -2,7 +2,7 @@
 
 Synthesis of binary multiplier circuits with RL: an agent fills a
 partial-product table and the environment evaluates it as a circuit
-(real Verilog on CPU, vectorized tensors on CUDA).
+(vectorized tensors on CUDA; final circuits verified as real Verilog).
 
 ## Required tools
 
@@ -10,31 +10,24 @@ partial-product table and the environment evaluates it as a circuit
 |---|---|---|
 | **Python 3.10+** | Yes | python.org (add to PATH) |
 | **pip packages** | Yes | `pip install -r requirements.txt` |
-| **Icarus Verilog** (`iverilog`, `vvp`) | Yes (CPU and verification) | Windows: `choco install iverilog` or installer from bleyer.org · Ubuntu: `sudo apt install iverilog` · macOS: `brew install icarus-verilog` |
+| **Icarus Verilog** (`iverilog`, `vvp`) | Yes (final verification only) | Windows: `choco install iverilog` or installer from bleyer.org · Ubuntu: `sudo apt install iverilog` · macOS: `brew install icarus-verilog` |
 | **PyTorch** | Yes (`*_cuda.py` scripts) | In `requirements.txt`. With GPU: `pip install torch --index-url https://download.pytorch.org/whl/cu124` (automatic fallback to CPU if no GPU) |
-| **pygame** | Optional (render only, `BinaryMathEnvSecuencial`) | `pip install pygame` |
 | **CUDA + NVIDIA driver** | Optional (GPU acceleration) | Up-to-date driver + PyTorch with cu12x support |
 
 ## Quick installation
 
 ```bash
 pip install -r requirements.txt
-pip install pygame          # optional
 # install Icarus Verilog for your OS (table above)
 ```
 
 ## Usage
 
-Each algorithm has a CPU script (iverilog per episode) and a batched CUDA one
+Each algorithm has a batched CUDA script
 (GPU; falls back to CPU automatically if no CUDA is available). Each writes to
 its own `out/<algo>/` folder.
 
 ```bash
-# CPU training (evaluates with iverilog, one episode at a time)
-python train_mc.py --bits 2 --episodes 1000
-python train_qlearning.py --bits 2 --episodes 1000
-python train_sarsa.py --bits 2 --episodes 1000
-
 # Batched training (GPU; falls back to CPU automatically if no CUDA)
 python train_mc_cuda.py --n-envs 512 --episodes 100000
 python train_qlearning_cuda.py --n-envs 512 --episodes 100000
@@ -59,14 +52,13 @@ products is not visible from simulation: count it with
 
 ## Algorithms
 
-| Algorithm | Type | Update | CPU script | CUDA script |
-|---|---|---|---|---|
-| **Monte Carlo** | On-policy, first-visit | `Q += α(G − Q)` | `train_mc.py` | `train_mc_cuda.py` |
-| **Q-learning** | Off-policy TD(0) | `Q += α(r + γ·max Q' − Q)` | `train_qlearning.py` | `train_qlearning_cuda.py` |
-| **SARSA** | On-policy TD(0) | `Q += α(r + γ·Q' − Q)` | `train_sarsa.py` | `train_sarsa_cuda.py` |
+| Algorithm | Type | Update | Script |
+|---|---|---|---|
+| **Monte Carlo** | On-policy, first-visit | `Q += α(G − Q)` | `train_mc_cuda.py` |
+| **Q-learning** | Off-policy TD(0) | `Q += α(r + γ·max Q' − Q)` | `train_qlearning_cuda.py` |
+| **SARSA** | On-policy TD(0) | `Q += α(r + γ·Q' − Q)` | `train_sarsa_cuda.py` |
 
-- **CPU** reward scale: `100 − 100·error` (100 = perfect circuit).
-- **CUDA** reward scale: `[-10, 0]` (0 = perfect circuit).
+- Reward scale `[-10, 0]` (0 = perfect circuit).
 - CUDA agents add `--gamma` (default `0.95`) for TD.
 - All CUDA updates average targets per `(s, a)` pair with
   `index_put_(accumulate=True)`: since n_envs episodes share the same
@@ -82,18 +74,15 @@ folder:
 - `out/montecarlo_cuda/best_multiplier_cuda.v` … `best_multiplier_cuda_5.v`
 - `out/qlearning_cuda/best_multiplier_cuda.v` … `best_multiplier_cuda_5.v`
 - `out/sarsa_cuda/best_multiplier_cuda.v` … `best_multiplier_cuda_5.v`
-- (and analogously `best_multiplier.v` in `out/montecarlo/`, `out/qlearning/`, `out/sarsa/`)
 
 If fewer than 5 distinct circuits exist, whatever is available is saved.
 
 ## Structure
 
-- `envs/` — environments: `base.py` (`BinaryMathEnv`, CPU/iverilog), `pygame_env.py` (`BinaryMathEnvSecuencial`), `cuda.py` (`BinaryMathEnvCUDA`), `cuda_optimized.py` (`BinaryMathEnvCUDAOptimized`, batched with chunked streaming)
-- `agents/` — shared base (`_base.py`) and per-engine subpackages:
-  - `agents/cpu/` — `base.py` (tabular CPU), `montecarlo.py`, `qlearning.py`, `sarsa.py`
-  - `agents/cuda/` — `base.py` (batched tabular), `montecarlo.py`, `qlearning.py`, `sarsa.py`
+- `envs/` — environments: `cuda.py` (`BinaryMathEnvCUDA`), `cuda_optimized.py` (`BinaryMathEnvCUDAOptimized`, batched with chunked streaming); `base.py` (`BinaryMathEnv`) kept only as Verilog-export utility (no training)
+- `agents/` — shared base (`_base.py`) and `agents/cuda/` — `base.py` (batched tabular), `montecarlo.py`, `qlearning.py`, `sarsa.py`
 - `training/` — shared helpers: `baseline.py`, `plot.py`, `artifacts.py` (TopK + Verilog export)
-- `verification/` — universal testbench (`tb_multiplier_universal.v`, parametrized with `-D BITS=<n>`) and CPU-environment template (`testbench_template.v`)
+- `verification/` — universal testbench (`tb_multiplier_universal.v`, parametrized with `-D BITS=<n>`) and template (`testbench_template.v`)
 - `docs/environment.md` — exhaustive environment documentation
 - `out/` — per-agent results (Q, returns, `best_multiplier*.v`, plots) and Verilog scratch (`out/verilog/`)
 

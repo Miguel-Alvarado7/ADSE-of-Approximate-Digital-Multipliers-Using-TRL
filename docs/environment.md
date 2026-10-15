@@ -3,9 +3,11 @@
 Documentación exhaustiva del paquete `envs`.
 
 Este documento describe en detalle el **entorno de Aprendizaje por Refuerzo (RL)** que
-sintetiza circuitos multiplicadores binarios. Cubre las cuatro clases del paquete, el
-pipeline de evaluación Verilog real, las fórmulas de recompensa y las limitaciones
-conocidas. **No** cubre agentes, algoritmos de RL ni entrenamiento.
+sintetiza circuitos multiplicadores binarios. El único path de entrenamiento es
+CUDA (`BinaryMathEnvCUDA` / `BinaryMathEnvCUDAOptimized`); `BinaryMathEnv`
+(CPU/iverilog) se conserva solo como utilidad de exportación Verilog
+(`generate_verilog`, usado por `training/artifacts.py`) y `pygame` está
+descontinuado (no existe `pygame_env.py` en el repo).
 
 ---
 
@@ -42,30 +44,27 @@ motiva el uso de RL (y de búsqueda tipo MCTS) para explorar tablas válidas.
 
 ```
 envs/
-├── __init__.py          Re-exporta las 4 clases (imports perezosos)
-├── base.py              BinaryMathEnv          — núcleo conceptual (gym.Env)
-├── pygame_env.py        BinaryMathEnvSecuencial — versión con render pygame
+├── __init__.py          Re-exporta las clases (imports perezosos)
+├── base.py              BinaryMathEnv          — legacy, solo exportación Verilog (sin entrenamiento)
 ├── cuda.py              BinaryMathEnvCUDA       — batch vectorizado en GPU
-└── cuda_optimized.py    BinaryMathEnvCUDAOptimized — batch con streaming por chunks
+└── cuda_optimized.py    BinaryMathEnvCUDAOptimized — batch con streaming por chunks (path de entrenamiento)
 ```
 
 | Clase | Motor de evaluación | Interfaz | Uso típico |
 |---|---|---|---|
-| `BinaryMathEnv` | `iverilog` + `vvp` (Verilog real) | Gym clásico (`reset/step`) | Demos, validación conceptual, CPU |
-| `BinaryMathEnvSecuencial` | `iverilog` + `vvp` | Gym + `render()` (pygame) | Visualización del proceso |
-| `BinaryMathEnvCUDA` | Tensores PyTorch (GPU) | Batched (`step(actions[n_envs])`) | MCTS paralelo, escalado |
-| `BinaryMathEnvCUDAOptimized` | Tensores PyTorch (chunks) | Batched | MCTS con `Bits` grandes (evita OOM) |
+| `BinaryMathEnv` (legacy) | `iverilog` + `vvp` (Verilog real) | Gym clásico (`reset/step`) | Solo exportación Verilog, sin entrenamiento |
+| `BinaryMathEnvCUDA` | Tensores PyTorch (GPU) | Batched (`step(actions[n_envs])`) | Paralelo, escalado |
+| `BinaryMathEnvCUDAOptimized` | Tensores PyTorch (chunks) | Batched | Entrenamiento (`Bits` grandes, evita OOM) |
 
 ### 2.1 Imports perezosos (`__init__.py`)
 
-El `__init__.py` re-exporta las cuatro clases, pero usa **imports perezosos (PEP 562)**
+El `__init__.py` re-exporta las clases, pero usa **imports perezosos (PEP 562)**
 mediante un `__getattr__` a nivel de módulo. Solo `BinaryMathEnv` (que depende de
-`numpy` y `gymnasium`) se importa de forma inmediata; las clases que arrastran
-dependencias pesadas (`pygame`, `torch`) se cargan bajo demanda:
+`numpy` y `gymnasium`) se importa de forma inmediata; las clases CUDA (`torch`)
+se cargan bajo demanda (`pygame` descontinuado, sin `pygame_env.py`):
 
 ```python
 _LAZY_MODULES = {
-    'BinaryMathEnvSecuencial': '.pygame_env',
     'BinaryMathEnvCUDA': '.cuda',
     'BinaryMathEnvCUDAOptimized': '.cuda_optimized',
 }
@@ -77,16 +76,16 @@ def __getattr__(name):
     raise AttributeError(...)
 ```
 
-Esto permite ejecutar experimentos en CPU con **solo `numpy` + `gymnasium`** sin instalar
-`pygame` ni `torch`. `__all__` sigue listando las cuatro clases, por lo que
-`from envs import *` continúa funcionando.
+Esto permite importar el paquete base con **solo `numpy` + `gymnasium`** sin instalar
+`torch`. `BinaryMathEnv` se conserva solo para exportación Verilog; el
+entrenamiento usa exclusivamente CUDA.
 
 ---
 
-## 3. `BinaryMathEnv` — el entorno CPU (núcleo conceptual)
+## 3. `BinaryMathEnv` — legacy (solo exportación Verilog, sin entrenamiento)
 
-Clase base del paquete. Hereda de `gymnasium.Env`. Toda la lógica conceptual del problema
-vive aquí; las demás clases la replican o la aceleran.
+Clase heredada de `gymnasium.Env`, conservada únicamente para `generate_verilog`
+y compatibilidad de estados con CUDA. No es path de entrenamiento.
 
 ### 3.1 Parámetros de configuración
 
